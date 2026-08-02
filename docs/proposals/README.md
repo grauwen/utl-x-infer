@@ -2,7 +2,7 @@
 
 ### Design documents
 
-All proposals live in [`docs/proposals/`](docs/proposals/):
+All proposals live in docs/proposals/
 
 | Document | Description |
 |---|---|
