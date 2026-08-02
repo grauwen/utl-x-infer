@@ -3,30 +3,35 @@
 **Probabilistic mapping extension for UTL-X — inference-capable values, `ai.*` stdlib, and `%utlx 2.0` engine**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)](https://go.dev)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-7F52FF.svg)](https://kotlinlang.org)
+[![JVM](https://img.shields.io/badge/JVM-17+-orange.svg)](https://adoptium.net)
 [![UTL-X](https://img.shields.io/badge/UTL--X-%E2%89%A5_v1.3.0-amber.svg)](https://github.com/grauwen/utl-x)
 [![Status](https://img.shields.io/badge/Status-Experimental-orange.svg)]()
 
 ---
 
 UTL-X Infer extends [UTL-X](https://github.com/grauwen/utl-x) with
-**probabilistic value semantics** — the ability to work with values that
-carry a confidence score, a source annotation, and a model provenance reference
+**probabilistic value semantics** — the ability to work with values that carry
+a confidence score, a source annotation, and a model provenance reference
 alongside the value itself.
 
-Where UTL-X 1.x transforms observed, deterministic data, UTL-X Infer adds
-a second class of value: the **inferred value** — produced by a Tabular
+Where UTL-X 1.x transforms observed, deterministic data, UTL-X Infer adds a
+second class of value: the **inferred value** — produced by a Tabular
 Foundation Model, a statistical imputer, a classifier, or any probabilistic
 inference engine registered in the Open-M Model Registry.
 
 Scripts declare `%utlx 2.0` and gain access to the `ai.*` standard library
-namespace. All `%utlx 1.0` and `%utlx 1.1` scripts run unchanged on the
-UTL-X Infer engine — full backward compatibility is enforced by the imported
-UTL-X conformance suite.
+namespace. All `%utlx 1.0` and `%utlx 1.1` scripts run unchanged on the UTL-X
+Infer engine — full backward compatibility is enforced by the imported UTL-X
+conformance suite, not just promised in a README.
 
-> **This project is experimental.** The `%utlx 2.0` language specification
-> and the `ai.*` stdlib are under active design. Breaking changes will occur
-> before the first stable release. See [Status](#status) below.
+UTL-X Infer is written in **Kotlin** — the same language as UTL-X. It imports
+`utl-x` as a standard Gradle dependency and builds directly on its parser, UDM,
+and evaluator. No cross-language bridge. No duplicated code.
+
+> **This project is experimental.** The `%utlx 2.0` specification and `ai.*`
+> stdlib are under active design. Breaking changes will occur before the first
+> stable release. See [Status](#status).
 
 ---
 
@@ -53,36 +58,40 @@ UTL-X conformance suite.
 
 UTL-X 1.x is **pure and deterministic** — same input always produces same
 output. This is the right contract for field mapping, format conversion, and
-structural transformation.
+structural transformation. It is what the language is built for.
 
 Some integration scenarios require more. A supplier CSV feed where 15% of
 `unitPrice` fields are missing. An inbound EDIFACT batch where row type must
 be inferred because no explicit type field exists. A high-volume data pipeline
-where statistical outliers need flagging before the data reaches the ERP.
+where statistical outliers need flagging before data reaches the ERP.
 
 These scenarios need values to be **inferred**, not just mapped. UTL-X Infer
 provides this through:
 
 | Capability | What it does |
 |---|---|
-| **Probabilistic cell values** | Scalar values that carry `._confidence`, `._source`, and `._model_ref` metadata alongside the value itself |
+| **Probabilistic cell values** | Scalar values carrying `._confidence`, `._source`, and `._model_ref` metadata alongside the value itself |
 | **`ai.*` stdlib namespace** | Functions for imputation, classification, quality scoring, anomaly detection, and schema inference |
-| **`mode: component` execution** | Scripts that declare `mode: component` are allowed to be non-pure and non-deterministic — they run in a dedicated pod, never inline in the wrapper |
-| **Model Registry client** | Resolves model references (`namespace.models.name:version`) against the Open-M Model Registry |
+| **`mode: component` execution** | Scripts declaring `mode: component` may be non-pure and non-deterministic — they run in a dedicated pod, never inline in the receiving wrapper |
+| **Model Registry client** | Resolves model references (`namespace.models.name:version`) at runtime |
 | **UDM 2.0 node types** | `ProbabilisticCell`, `ColumnAnnotation`, `TableMeta` — extensions to the Universal Data Model |
 
 ---
 
 ## Relationship to UTL-X
 
-UTL-X Infer is **not a fork**. It is a Go module that depends on
+UTL-X Infer is **not a fork**. It is a Kotlin library that depends on
 `github.com/grauwen/utl-x` and extends it. The parser, UDM 1.0 node types,
-core stdlib, and `validate.*` namespace are imported from UTL-X — not
-duplicated.
+core stdlib, and `validate.*` namespace are imported as standard Gradle
+dependencies — not duplicated.
 
-```
-github.com/grauwen/utl-x-infer
-    └── requires github.com/grauwen/utl-x ≥ v1.3.0
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("com.github.grauwen:utl-x:1.3.0")              // parser, UDM 1.0, core stdlib
+    implementation("ai.djl:api:0.26.0")                            // Deep Java Library
+    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.26.0") // ONNX runtime for TFM models
+}
 ```
 
 **What lives where:**
@@ -98,11 +107,11 @@ github.com/grauwen/utl-x-infer
 | `ai.*` stdlib | `utl-x-infer` |
 | 2.0 evaluator | `utl-x-infer` |
 | Model Registry client | `utl-x-infer` |
-| TFM runtime bindings | `utl-x-infer` |
+| TFM runtime (DJL + ONNX) | `utl-x-infer` |
 
-A project that imports `github.com/grauwen/utl-x` gets zero probabilistic
-or TFM dependencies. Only projects that explicitly import
-`github.com/grauwen/utl-x-infer` pull in the inference stack.
+A project that depends on `utl-x` gets zero probabilistic or TFM dependencies.
+Only projects that explicitly depend on `utl-x-infer` pull in the inference
+stack.
 
 ---
 
@@ -143,8 +152,8 @@ $rows
      })
 ```
 
-Compare the same pipeline without inference — using UTL-X 1.0, no special
-engine required:
+The same pipeline without inference — using UTL-X 1.0, no special engine
+required:
 
 ```
 %utlx 1.0
@@ -159,26 +168,26 @@ output json
 }
 ```
 
-The 1.0 script runs on the base UTL-X engine and maps only what is present.
+The 1.0 script runs on the base UTL-X engine and maps what is present.
 The 2.0 script runs on UTL-X Infer and fills what is missing before mapping.
-Both are valid — the right choice depends on whether inference is needed.
+Both are correct — the choice depends on whether inference is needed.
 
 ---
 
 ## The `ai.*` stdlib
 
-All `ai.*` functions operate on UDM array-of-objects (table) nodes. They
-return modified versions of the same table with probabilistic cells where
-values were inferred or transformed.
+All `ai.*` functions operate on UDM array-of-objects (table) nodes and return
+modified versions of the same table with probabilistic cells where values were
+inferred or transformed.
 
 `ai.*` functions are a **parse-time error** in `%utlx 1.0` and `%utlx 1.1`
 scripts, and in any `%utlx 2.0` script that does not declare `mode: component`.
-This is enforced by the parser — not the runtime. A misconfigured script is
-caught before execution begins.
+Misconfigured scripts are caught before execution begins — not at runtime.
 
 ### `ai.impute`
 
-Fill missing values using a registered TFM model.
+Fill missing or null values using a registered TFM model. Only null cells
+are filled — observed values are never overwritten.
 
 ```
 $rows |> ai.impute(
@@ -186,9 +195,6 @@ $rows |> ai.impute(
   model:   "logistics.models.tabpfn-v2:2.1.0"
 )
 ```
-
-Returns the table with affected cells replaced by `ProbabilisticCell` nodes.
-The original value is preserved if present — only null/missing cells are filled.
 
 ### `ai.classify`
 
@@ -201,12 +207,9 @@ $rows |> ai.classify(
 )
 ```
 
-Adds a new `recordType` column to every row. Each cell is a `ProbabilisticCell`
-with the classified label and its confidence score.
-
 ### `ai.score`
 
-Score the overall data quality of the table. Sets `$rows._meta.quality_score`.
+Score overall data quality. Sets `$rows._meta.quality_score` (0.0–1.0).
 
 ```
 $rows |> ai.score(
@@ -217,8 +220,7 @@ $rows |> ai.score(
 
 ### `ai.anomaly`
 
-Flag anomalous rows. Sets `row._anomaly = true` on outliers and
-`$rows._meta.anomaly_count`.
+Flag anomalous rows. Sets `row._anomaly` and `$rows._meta.anomaly_count`.
 
 ```
 $rows |> ai.anomaly(
@@ -230,7 +232,7 @@ $rows |> ai.anomaly(
 ### `ai.infer_schema`
 
 Populate `ColumnAnnotation` semantic fields — what each column means, not just
-its type. Useful for schema inference on unknown partner data.
+its data type. Useful for unknown partner data with no schema documentation.
 
 ```
 $rows |> ai.infer_schema(
@@ -240,7 +242,7 @@ $rows |> ai.infer_schema(
 
 ### `ai.clamp_outliers`
 
-Replace statistical outliers with imputed values.
+Replace statistical outliers with model-imputed values.
 
 ```
 $rows |> ai.clamp_outliers(
@@ -259,19 +261,19 @@ UTL-X Infer extends the Universal Data Model with three new node types.
 ### ProbabilisticCell
 
 A scalar value annotated with inference metadata. In most expressions it
-behaves as its `.value` — backward compatible with 1.x expressions that do
-not inspect metadata. Metadata is accessible explicitly via `._` prefix:
+behaves as its `.value` — backward compatible with 1.x expressions. Metadata
+is accessible via the `._` prefix convention:
 
 ```
-$row.unitPrice                  // resolves to .value — the inferred number
-$row.unitPrice._confidence      // 0.0–1.0 — model confidence
+$row.unitPrice                  // resolves to .value
+$row.unitPrice._confidence      // 0.0–1.0
 $row.unitPrice._source          // "observed" | "imputed" | "inferred" | "classified"
 $row.unitPrice._model_ref       // "logistics.models.tabpfn-v2:2.1.0"
 ```
 
 ### ColumnAnnotation
 
-Semantic type metadata per column — what the column means, not just its type.
+Semantic type per column — what the column means, not just its structural type.
 Accessible as `$input._schema.columns`:
 
 ```
@@ -287,29 +289,27 @@ Table-level metadata set by `ai.*` functions. Accessible as `$input._meta`:
 
 ```
 $input._meta.quality_score    // 0.0–1.0 — set by ai.score()
-$input._meta.row_count        // total rows
-$input._meta.anomaly_count    // set by ai.anomaly()
-$input._meta.model_versions   // audit trail of models applied
+$input._meta.row_count        // total rows in the table
+$input._meta.anomaly_count    // count of flagged rows — set by ai.anomaly()
+$input._meta.model_versions   // audit trail of all models applied
 ```
 
 ---
 
 ## Script header — `%utlx 2.0`
 
-Every UTL-X Infer script begins with the 2.0 header. New fields beyond 1.x:
-
 ```
 %utlx 2.0
-input:  rows csv                                        ← unchanged from 1.x
-output: json                                            ← unchanged from 1.x
-mode:   component                                       ← required for ai.*
-model:  logistics.models.tabpfn-v2:2.1.0               ← required when ai.* used
+input:  rows csv
+output: json
+mode:   component
+model:  logistics.models.tabpfn-v2:2.1.0
 ---
 ```
 
 | Field | Values | Notes |
 |---|---|---|
-| `%utlx` | `2.0` | Required. Engine rejects scripts with version mismatch. |
+| `%utlx` | `2.0` | Required. Engine rejects version mismatches immediately. |
 | `input:` | `alias format[, alias format]*` | Unchanged from 1.x. |
 | `output` | format token | Unchanged from 1.x. |
 | `mode:` | `inline` \| `ref` \| `component` | Default `inline`. `ai.*` requires `component`. |
@@ -317,24 +317,21 @@ model:  logistics.models.tabpfn-v2:2.1.0               ← required when ai.* us
 
 ### mode: component
 
-Scripts declaring `mode: component` are **not required to be pure or
-deterministic**. They run in a dedicated Open-M mapping component pod — never
-inline in the receiving wrapper. The pod has its own error port, retry
-configuration, resource allocation (memory, GPU), and log topic.
-
-`ai.*` functions are a **parse-time error** outside `mode: component`.
+Scripts declaring `mode: component` are not required to be pure or
+deterministic. They run in a dedicated Open-M mapping component pod — never
+inline in the receiving wrapper. `ai.*` functions are a parse-time error
+outside `mode: component`.
 
 ### Backward compatibility
 
 All `%utlx 1.0` and `%utlx 1.1` scripts run unchanged on the UTL-X Infer
-engine. The version declaration in the header is the gate — the engine applies
-the 1.x contract strictly to 1.x scripts.
+engine. The version gate is enforced by the parser before any execution:
 
-```
-%utlx 1.0 script on utl-x-infer engine  →  runs under full 1.0 contract
-%utlx 1.1 script on utl-x-infer engine  →  runs under full 1.1 contract
-%utlx 2.0 script on utl-x engine        →  rejected: informative error message
-```
+| Script | utl-x engine | utl-x-infer engine |
+|---|---|---|
+| `%utlx 1.0` | ✓ runs | ✓ runs — full 1.0 contract |
+| `%utlx 1.1` | ✓ runs | ✓ runs — full 1.1 contract |
+| `%utlx 2.0` | ✗ rejected with informative error | ✓ runs |
 
 ---
 
@@ -342,21 +339,19 @@ the 1.x contract strictly to 1.x scripts.
 
 ### Requirements
 
-- Go 1.22 or later
-- `github.com/grauwen/utl-x` v1.3.0 or later
-- Access to an Open-M Model Registry (for `ai.*` function execution)
+- JVM 17 or later
+- Kotlin 1.9 or later
+- `utl-x` v1.3.0 or later (pulled automatically via Gradle)
+- Open-M Model Registry (for `ai.*` function execution at runtime)
 - NVIDIA GPU optional — most TFM models run on CPU with reduced throughput
 
-### Go module
+### Gradle
 
-```bash
-go get github.com/grauwen/utl-x-infer
-```
-
-### CLI binary
-
-```bash
-go install github.com/grauwen/utl-x-infer/cmd/utlx-infer@latest
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("com.github.grauwen:utl-x-infer:1.0.0-SNAPSHOT")
+}
 ```
 
 ### From source
@@ -364,8 +359,8 @@ go install github.com/grauwen/utl-x-infer/cmd/utlx-infer@latest
 ```bash
 git clone https://github.com/grauwen/utl-x-infer.git
 cd utl-x-infer
-go build ./...
-go test ./...
+./gradlew build
+./gradlew test
 ```
 
 ---
@@ -391,54 +386,66 @@ utlx-infer test ./conformance/
 utlx-infer format my-mapping.utlx
 ```
 
-### Go API
+### Kotlin API
 
-```go
-import (
-    utlxinfer "github.com/grauwen/utl-x-infer"
-    "github.com/grauwen/utl-x-infer/registry"
-)
+```kotlin
+import com.github.grauwen.utlxinfer.UtlxInferEngine
+import com.github.grauwen.utlxinfer.registry.ModelRegistry
 
 // Connect to the Model Registry
-reg := registry.New("http://model-registry.open-m.svc:8080")
+val registry = ModelRegistry.connect("http://model-registry.open-m.svc:8080")
 
-// Create a 2.0 engine
-engine := utlxinfer.NewEngine(
-    utlxinfer.WithModelRegistry(reg),
-)
+// Create the 2.0 engine
+val engine = UtlxInferEngine.builder()
+    .modelRegistry(registry)
+    .build()
 
-// Pre-compile a mapping script
-mapping, err := engine.Compile(`
+// Compile a mapping script
+val mapping = engine.compile("""
     %utlx 2.0
     input:  rows csv
     output: json
     mode:   component
     model:  logistics.models.tabpfn-v2:2.1.0
     ---
-    $rows |> ai.impute(columns: ["unitPrice"], model: "logistics.models.tabpfn-v2:2.1.0")
-          |> filter(row => row.unitPrice._confidence >= 0.90)
-          |> map(row => { sku: row.productCode, price: row.unitPrice })
-`)
-if err != nil {
-    log.Fatal(err)
-}
+    ${'$'}rows
+      |> ai.impute(columns: ["unitPrice"], model: "logistics.models.tabpfn-v2:2.1.0")
+      |> filter(row => row.unitPrice._confidence >= 0.90)
+      |> map(row => { sku: row.productCode, price: row.unitPrice })
+""".trimIndent())
 
-// Execute against input
-result, err := mapping.Execute(utlxinfer.Input{
-    Alias:  "rows",
-    Format: "csv",
-    Data:   csvBytes,
-    Schema: "logistics.schemas.supplier-feed:2.0.0",
-})
+// Execute against input data
+val result = mapping.execute(
+    UtlxInferInput(
+        alias  = "rows",
+        format = "csv",
+        data   = csvBytes,
+        schema = "logistics.schemas.supplier-feed:2.0.0"
+    )
+)
+```
+
+### Java API
+
+UTL-X Infer is fully interoperable with Java:
+
+```java
+ModelRegistry registry = ModelRegistry.connect("http://model-registry.open-m.svc:8080");
+
+UtlxInferEngine engine = UtlxInferEngine.builder()
+    .modelRegistry(registry)
+    .build();
+
+CompiledMapping mapping = engine.compile(script);
+UtlxInferResult result  = mapping.execute(input);
 ```
 
 ---
 
 ## Model Registry
 
-The Model Registry is the authoritative catalogue of TFM model references used
-by `ai.*` stdlib functions. It is part of the Open-M platform — UTL-X Infer
-connects to it at runtime to resolve model refs and load model weights.
+The Model Registry is the authoritative catalogue of TFM model references
+resolved by `ai.*` functions at runtime. It is part of the Open-M platform.
 
 ### Model ref format
 
@@ -451,7 +458,7 @@ logistics.models.quality-scorer-v1:1.0.0
 open-m.models.tabpfn-prior-labs:2.1.0     # platform-bundled model
 ```
 
-### Registering a model (Open-M CLI)
+### Registering a model
 
 ```bash
 open-m model register \
@@ -478,8 +485,13 @@ In Open-M pipelines, UTL-X Infer scripts run as **Mode 3 mapping components**
 — dedicated pods with their own resource allocation, error port, retry
 configuration, and log topic. They never run inline in the receiving wrapper.
 
+The Open-M wrapper is written in Go and imports the Go FEEL engine for
+routing. It does **not** import `utl-x-infer`. Only the dedicated inference
+mapping component pod — a separate JVM process — imports and runs the UTL-X
+Infer engine.
+
 ```yaml
-# pipeline YAML — Mode 3 inference mapping component
+# Pipeline YAML — Mode 3 inference mapping component
 components:
   - id:  tabular-quality-gate
     ref:  open-m.components.utlx-infer-mapper:1.0.0
@@ -506,42 +518,49 @@ components:
       cluster-ref:   k8s-prod-eu-west
       node_selector:
         accelerator: nvidia-t4
+    logging:
+      topic: logistics.orders.supplier-pipeline.tabular-quality-gate.log
 ```
-
-UTL-X 1.x Mode 2 inline mappings — the pure, stateless transforms on
-connection arrows — use `github.com/grauwen/utl-x` directly. The Open-M
-wrapper never imports `utl-x-infer`. Only the dedicated inference mapping
-component pod does.
 
 ---
 
 ## Conformance
 
-The UTL-X Infer conformance suite has two layers:
-
 ### Layer 1 — UTL-X 1.x backward compatibility
 
-The full UTL-X conformance suite (465+ tests, all `%utlx 1.0` and `%utlx 1.1`)
-is imported and run against the UTL-X Infer engine. Backward compatibility is
-not a README promise — it is an enforced test requirement on every release:
+The full UTL-X conformance suite is imported and executed against the UTL-X
+Infer engine on every build. Backward compatibility is enforced as code:
+
+```kotlin
+// conformance/src/test/kotlin/BackwardCompatTest.kt
+import com.github.grauwen.utlx.conformance.UtlxConformanceSuite
+
+class BackwardCompatTest {
+    @Test
+    fun `utl-x-infer engine passes all 1x conformance tests`() {
+        val engine = UtlxInferEngine.builder().build()
+        UtlxConformanceSuite.runAll(engine)   // all 465+ tests must pass
+    }
+}
+```
 
 ```bash
-go test ./conformance/backward_compat/...
+./gradlew test --tests "BackwardCompatTest"
 ```
 
 ### Layer 2 — UTL-X 2.0 coverage
 
-New tests covering `%utlx 2.0` scripts — `ai.*` functions, `ProbabilisticCell`
+Tests covering `%utlx 2.0` scripts — `ai.*` functions, `ProbabilisticCell`
 node semantics, `mode: component` enforcement, and Model Registry integration:
 
 ```bash
-go test ./conformance/v2/...
+./gradlew test --tests "conformance.v2.*"
 ```
 
-### Running the full suite
+### Full suite
 
 ```bash
-go test ./conformance/...
+./gradlew test
 ```
 
 All tests in both layers must pass before a release is tagged.
@@ -555,65 +574,65 @@ All tests in both layers must pass before a release is tagged.
 | `%utlx 2.0` language specification | 🟡 Design phase |
 | UDM 2.0 node types | 🟡 Design phase |
 | `ai.*` stdlib function signatures | 🟡 Design phase |
-| Parser extension for 2.0 header | 🔴 Not started |
+| Parser extension for 2.0 header fields | 🔴 Not started |
 | `ProbabilisticCell` evaluator | 🔴 Not started |
-| TabPFN v2 integration | 🔴 Not started |
+| TabPFN v2 integration via DJL + ONNX | 🔴 Not started |
 | Model Registry client | 🔴 Not started |
-| Backward compat conformance suite | 🔴 Not started |
+| Backward compat conformance harness | 🔴 Not started |
 | 2.0 conformance suite | 🔴 Not started |
-| LSP extension | 🔴 Not started |
+| LSP extension for `%utlx 2.0` | 🔴 Not started |
 | CLI (`utlx-infer`) | 🔴 Not started |
 | Open-M mapper component | 🔴 Not started |
 
 **Current phase: design stabilisation.**
 
-The design documents in [`docs/proposals/`](docs/proposals/) define the
-intended behaviour. Implementation begins once the specification is stable
-and reviewed. Do not take a production dependency on this module yet.
+Design documents in [`docs/proposals/`](docs/proposals/) define the intended
+behaviour. Implementation begins once the specification is stable and reviewed.
+Do not take a production dependency on this module.
 
 ### Prerequisites before v1.0.0
 
 - [ ] UDM 2.0 node types reviewed and finalised
-- [ ] `ai.*` stdlib function signatures stable
+- [ ] `ai.*` stdlib function signatures stable — no breaking changes after this point
 - [ ] Model Registry client interface designed
-- [ ] TabPFN v2 proof of concept running end-to-end
+- [ ] TabPFN v2 proof of concept running end-to-end via DJL + ONNX
 - [ ] `%utlx 2.0` parser passing basic test scripts
 - [ ] Backward compatibility suite passing against `utl-x` v1.3.0
-- [ ] At least one conformance test per `ai.*` function
+- [ ] Minimum one conformance test per `ai.*` function
 
 ---
 
 ## Contributing
 
-UTL-X Infer is in early design phase. The most valuable contributions right
-now are:
+The most valuable contributions during the design phase are:
 
-- **Design review** — read the proposals in [`docs/proposals/`](docs/proposals/)
-  and open an issue with questions, corrections, or alternative approaches
-- **TFM expertise** — experience with TabPFN, ONNX, or other inference runtimes
-  — open an issue describing your experience and what the integration should
-  look like
+- **Design review** — read [`docs/proposals/`](docs/proposals/) and open an
+  issue with questions, corrections, or alternative approaches
+- **TFM expertise** — experience with TabPFN, DJL, ONNX Runtime, or other
+  inference runtimes — open an issue describing what the integration should
+  look like from an API and runtime perspective
 - **Use case documentation** — real-world scenarios where probabilistic mapping
-  would replace brittle hand-coded validation rules
+  would replace brittle hand-coded validation rules in production pipelines
 
 When implementation begins, contributions follow the same process as
 [UTL-X](https://github.com/grauwen/utl-x/blob/main/CONTRIBUTING.md):
 
 1. Open an issue before starting significant work
 2. Fork the repo and create a branch from `main`
-3. Write tests — new `ai.*` functions need conformance tests
-4. Ensure `go test ./conformance/...` passes — including the backward
-   compatibility layer
+3. Write tests — every new `ai.*` function needs conformance tests in both
+   the function-level and the backward compatibility layer
+4. Run `./gradlew test` — all tests including the imported 1.x suite must pass
 5. Submit a pull request with a clear description of what changes and why
 
 ### Design documents
 
-All design proposals live in [`docs/proposals/`](docs/proposals/). Current
-proposals:
+All proposals live in [`docs/proposals/`](docs/proposals/):
 
-- [`utlx-2-tabular-foundation-models.md`](docs/proposals/utlx-2-tabular-foundation-models.md) — full 2.0 language spec
-- [`utlx-language-versioning-validation.md`](docs/proposals/utlx-language-versioning-validation.md) — version model and validate.* namespace
-- [`utlx-repository-strategy.md`](docs/proposals/utlx-repository-strategy.md) — why two repos, naming rationale
+| Document | Description |
+|---|---|
+| [`utlx-2-tabular-foundation-models.md`](docs/proposals/utlx-2-tabular-foundation-models.md) | Full 2.0 language specification — UDM extensions, `ai.*` stdlib, execution model |
+| [`utlx-language-versioning-validation.md`](docs/proposals/utlx-language-versioning-validation.md) | Version model, `validate.*` namespace, engine compatibility matrix |
+| [`utlx-repository-strategy.md`](docs/proposals/utlx-repository-strategy.md) | Why two repos, naming rationale, shared component strategy |
 
 ---
 
@@ -636,22 +655,22 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU Affero General Public License for more details.
 ```
 
-The full licence text is in [`LICENSE`](LICENSE).
+Full licence text: [`LICENSE`](LICENSE).
 
 ### What AGPL v3 means in practice
 
-- **Internal use:** Free. Use UTL-X Infer in your own infrastructure,
-  pipelines, and integrations without restriction.
-- **Distribution:** If you distribute software that includes UTL-X Infer,
-  you must make the full source available under AGPL v3.
-- **SaaS / hosted service:** If you offer UTL-X Infer as a service over a
-  network, you must make the source available to your users under AGPL v3.
-- **Commercial licence:** If AGPL v3 does not fit your use case, contact
-  [grauwen](https://github.com/grauwen) to discuss a commercial licence.
+| Use case | Requirement |
+|---|---|
+| Internal use in your own infrastructure | Free — no conditions |
+| Distributing software that includes UTL-X Infer | Source must be available under AGPL v3 |
+| Offering UTL-X Infer as a hosted / SaaS service | Source must be available to your users under AGPL v3 |
+| Embedding in a commercial product without source disclosure | Commercial licence required |
+
+For commercial licensing enquiries contact [grauwen](https://github.com/grauwen).
 
 AGPL v3 is the same licence used by [UTL-X](https://github.com/grauwen/utl-x)
-and [Open-M](https://github.com/grauwen/open-m). The licence family is
-consistent across the entire platform.
+and [Open-M](https://github.com/grauwen/open-m). The licence is consistent
+across the entire platform.
 
 ---
 
@@ -659,6 +678,7 @@ consistent across the entire platform.
 
 | Project | Description |
 |---|---|
-| [UTL-X](https://github.com/grauwen/utl-x) | Pure functional transformation language — the foundation this project builds on |
+| [UTL-X](https://github.com/grauwen/utl-x) | Pure functional transformation language — the Kotlin foundation this project builds on |
 | [Open-M](https://github.com/grauwen/open-m) | Enterprise middleware platform — UTL-X Infer runs as Open-M Mode 3 mapping components |
-| [Prior Labs TabPFN](https://github.com/PriorLabs/TabPFN) | The primary TFM integration target — zero-shot tabular imputation and classification |
+| [Prior Labs TabPFN](https://github.com/PriorLabs/TabPFN) | Primary TFM integration target — zero-shot tabular imputation and classification |
+| [Deep Java Library](https://github.com/deepjavalibrary/djl) | JVM inference runtime — loads and runs ONNX and PyTorch models from Kotlin/Java |
