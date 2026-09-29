@@ -115,16 +115,33 @@ that drives 1.1/2.0 are all real and correctly identified by their source docs.
    `mode: component` (or a shared parent concept) **before** either is built, or
    the platform ends up with two out-of-line runtimes.
 
-3. **Repo-strategy doc bug.** `utlx-repository-strategy.md` states utl-x-infer
-   imports utl-x "as a **Go module** dependency." The README and versioning docs
-   are emphatic that it is **Kotlin/Gradle** (`implementation("com.github.grauwen:utl-x:1.3.0")`).
-   The Go phrasing appears copied from Open-M and should be corrected.
+3. **Metadata sigil: `^` vs `._` — reconcile before 2.0 stabilises.** Core UTL-X
+   already has a **metadata accessor, the caret `^`** (verified in
+   `parser_impl.kt`: `@` = attribute, `^` = metadata, `.` = data), backed by the
+   UDM per-node `metadata` map (format-fidelity; dropped on plain output, preserved
+   for round-trip). The **Infer 2.0** proposal independently introduced a *different*
+   convention — `._confidence`, `._source`, `._model_ref` — for probabilistic
+   metadata, and the **MIL BINF** design wants the same channel for decode
+   provenance (matched message, CRC status, raw bytes, bit offsets, sentinels).
+   These are the same concept ("metadata about a value") under two syntaxes. `^`
+   looks like the **one unifying metadata sigil** across BINF provenance *and* Infer
+   annotations (e.g. `$row.unitPrice^confidence`). Decide this **before** `%utlx 2.0`
+   locks its stdlib, or the platform ships two metadata conventions. *Sub-point:* the
+   metadata map is currently `Map<String,String>` — typed values (confidence float,
+   CRC bool) need string coercion or a widened metadata type. See
+   `utlx-mil/docs/BINF-bit-level-binary-format.md` §1b.
 
-4. **Cross-doc drift.** stdlib count appears as 652 (MIL), 635 (Infer README),
+4. **Repo-strategy doc bug.** `utlx-repository-strategy.md` states utl-x-infer imports
+   utl-x "as a **Go module** dependency." The README and versioning docs are emphatic
+   it is **Kotlin/Gradle** (`implementation("com.github.grauwen:utl-x:1.3.0")`). The Go
+   phrasing appears copied from Open-M and should be corrected. (Both this and the `^`/`._`
+   split in (3) share a root cause: the docs were authored independently and not cross-checked.)
+
+5. **Cross-doc drift.** stdlib count appears as 652 (MIL), 635 (Infer README),
    "652" (code claim); conformance as "465+". Cosmetic, but a sign the docs were
    authored in isolation and not cross-checked.
 
-5. **Focus, not fit, is the real risk.** Fit is genuinely good; the danger is a
+6. **Focus, not fit, is the real risk.** Fit is genuinely good; the danger is a
    small team carrying four expansion vectors plus the IDE plus Open-M. "Do they
    fit?" → yes. "Can they be sequenced without starving each other?" → only with
    discipline.
@@ -200,6 +217,7 @@ contract-preservation rule.
 The open questions are **not about fit** — they are about **discipline**:
 
 - unify the execution-mode concept (`mode: component` ⊇ MIL streaming/gateway),
+- unify the **metadata sigil** — one `^` for BINF provenance *and* Infer annotations, not a separate `._`,
 - order the core roadmap (**1.1 → BINF/streaming → 2.0**),
 - fix the repo-strategy doc's Go/Kotlin slip,
 - and resist running all vectors at once with one team.
