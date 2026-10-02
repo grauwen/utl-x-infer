@@ -131,11 +131,12 @@ that drives 1.1/2.0 are all real and correctly identified by their source docs.
    CRC bool) need string coercion or a widened metadata type. See
    `utlx-mil/docs/BINF-bit-level-binary-format.md` §1b.
 
-4. **Repo-strategy doc bug.** `utlx-repository-strategy.md` states utl-x-infer imports
-   utl-x "as a **Go module** dependency." The README and versioning docs are emphatic
-   it is **Kotlin/Gradle** (`implementation("com.github.grauwen:utl-x:1.3.0")`). The Go
-   phrasing appears copied from Open-M and should be corrected. (Both this and the `^`/`._`
-   split in (3) share a root cause: the docs were authored independently and not cross-checked.)
+4. **Repo-strategy doc bug — FIXED (Oct 2026).** `utlx-repository-strategy.md` had stated
+   utl-x-infer imports utl-x "as a **Go module** dependency"; corrected to **Kotlin/Gradle**
+   (`implementation("com.github.grauwen:utl-x:1.3.0")`) throughout. The same doc now also
+   carries the repo-split decision (§1a: split by dependency/identity/cadence, not version;
+   1.1 stays on the pure `utl-x` line, `infer` is 2.0-only). (This and the `^`/`._` split in
+   (3) shared a root cause: docs authored independently and not cross-checked.)
 
 5. **Cross-doc drift.** stdlib count appears as 652 (MIL), 635 (Infer README),
    "652" (code claim); conformance as "465+". Cosmetic, but a sign the docs were

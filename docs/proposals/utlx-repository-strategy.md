@@ -30,13 +30,69 @@ between them.
 | **Your book** | ✓ — the book's subject | ✗ — not the book's subject |
 
 The relationship is a **dependency, not a fork**. `utl-x-infer` builds on top of
-`utl-x`. The parser, UDM 1.0 node types, and core stdlib are imported from
-`utl-x` as a Go module dependency — not duplicated.
+`utl-x`. The parser, UDM 1.0 node types, and core stdlib are imported from `utl-x` as a
+**Kotlin/Gradle (Maven) artifact dependency** — not duplicated.
 
 ```
-github.com/grauwen/utl-x-infer
-    └── requires github.com/grauwen/utl-x v1.3.0
+com.github.grauwen:utl-x-infer
+    └── implementation("com.github.grauwen:utl-x:1.3.0")   // JitPack / Maven artifact
 ```
+
+---
+
+## 1a. Decision — split by dependency/identity/cadence, NOT by version number
+
+**A question arose: should `%utlx 1.1` be split from `%utlx 2.0` into its own repo, and
+should 1.1 live in `utl-x-infer`? Decision: no to both.** The guiding rule — the same one
+that justified separating `infer` from core (§2) — is that **repos split on dependency
+weight, identity, and release cadence, not on version number.** Applied to 1.1 vs 2.0:
+
+| Criterion | 1.1 (`validate.*`) | 2.0 (`ai.*`) |
+|---|---|---|
+| Dependencies | **zero heavyweight** — pure Kotlin | DJL + ONNX + TabPFN + GPU |
+| Contract | **pure, deterministic** (minor, backward-compat) | breaks purity/determinism (major) |
+| Audience | **same as core** | MLOps / inference |
+| Cadence | conservative, like core | experimental |
+
+Every row puts **1.1 on the same side as 1.0** — because 1.1 *is* the next minor of the
+**pure language line** (1.0 → 1.1 → 1.2 …), which is one evolving codebase. Therefore:
+
+1. **1.1 lives with the pure line in `utl-x`** (where `validate.*` already belongs per §6)
+   — **not** in `utl-x-infer`, and **not** in a new dedicated 1.1 repo. Putting 1.1 in
+   `infer` would couple a zero-dependency feature to the ML stack and mislabel it;
+   a per-minor repo would be sprawl and add a permanent link to the dependency chain
+   (`core ← 1.1 ← 2.0`) to version-coordinate forever.
+2. **"Keep 1.0 as-is" is a git concern, not a repo concern.** Freeze 1.0 as a **release
+   tag / branch** (`v1.0.x`, the book's citable subject) and develop **1.1 on `main`/a
+   `next` branch of `utl-x`**. Git versioning — not a repo split — gives a pristine 1.0
+   *and* a natural home for 1.1 (how CPython et al. handle minors).
+3. **`utl-x-infer` stays 2.0-only.** All the §2 arguments (ML deps, identity, the book)
+   apply to 2.0, not to 1.1.
+4. **Interim note:** a draft of 1.1 / post-1.0 material was parked in `utl-x-infer`
+   during exploration. Target state is 1.1 on the `utl-x` pure line per (1)–(2); if
+   touching `utl-x` must wait, the least-bad interim is a single `utl-x-next` staging
+   repo that **folds back** into `utl-x` at release — still never merged with `infer`.
+
+### Recommended end-state
+
+```
+utl-x        pure language — 1.0 (frozen tag/release) · 1.1 (main/next) · 1.2 … ; validate.* here
+utl-x-infer  2.0 probabilistic only        → implementation("com.github.grauwen:utl-x:x.y.z")
+utlx-mil     defence edition (BINF, guard) → implementation("com.github.grauwen:utl-x:x.y.z")
+```
+
+### Can repos link to each other?
+
+Yes — and the cost of each link is why repo count should stay minimal:
+
+- **Code → versioned artifact dependency (preferred):** publish `utl-x` to Maven/JitPack
+  (`com.github.grauwen:utl-x:x.y.z`); `infer` and `mil` depend on a pinned version. The
+  "dependency, not fork" model. *Cost:* each boundary = a publish + a version to bump/pin.
+- **Docs → full GitHub URLs** for cross-repo links (relative paths only resolve when
+  repos are checked out side-by-side).
+- **Git submodules** work but are painful — prefer artifacts. A **monorepo with Gradle
+  modules** is the opposite option (no cross-repo overhead), rejected here on
+  perception/identity grounds (§2) but technically valid.
 
 ---
 
@@ -73,7 +129,7 @@ UTL-X 2.0's `ai.*` stdlib requires TFM model loading, tensor operations, and
 optionally GPU interaction. These are megabytes of transitive dependencies that
 have no place in a 1.0 or 1.1 deployment.
 
-In a monorepo with two Go modules, the dependency boundary exists technically
+In a monorepo with two Gradle modules, the dependency boundary exists technically
 but not perceptually. Contributors still work in one repo. New users reading the
 repo see both and have to understand the distinction before writing a single
 script.
@@ -253,35 +309,33 @@ when it ships. The header `%utlx 1.0` is stable and will not need changing.
 
 ## 6. Shared components — where they live
 
-`utl-x-infer` reuses from `utl-x` via Go module import — not duplication:
+`utl-x-infer` reuses from `utl-x` via **Kotlin/Gradle (Maven) artifact import** — not
+duplication:
 
 | Component | Lives in | Imported by |
 |---|---|---|
-| Parser / tokeniser / lexer | `utl-x` | `utl-x-infer` via go.mod |
-| UDM 1.0 node types | `utl-x` | `utl-x-infer` via go.mod |
-| Core stdlib (1.0 functions) | `utl-x` | `utl-x-infer` via go.mod |
-| validate.* stdlib (1.1) | `utl-x` | `utl-x-infer` via go.mod |
-| 1.0 / 1.1 evaluator | `utl-x` | `utl-x-infer` via go.mod |
+| Parser / tokeniser / lexer | `utl-x` | `utl-x-infer` via Gradle dep |
+| UDM 1.0 node types | `utl-x` | `utl-x-infer` via Gradle dep |
+| Core stdlib (1.0 functions) | `utl-x` | `utl-x-infer` via Gradle dep |
+| validate.* stdlib (1.1) | `utl-x` | `utl-x-infer` via Gradle dep |
+| 1.0 / 1.1 evaluator | `utl-x` | `utl-x-infer` via Gradle dep |
 | UDM 2.0 node types | `utl-x-infer` | — |
 | ai.* stdlib | `utl-x-infer` | — |
 | 2.0 evaluator | `utl-x-infer` | — |
 | TFM runtime dependencies | `utl-x-infer` | — |
 | Model Registry client | `utl-x-infer` | — |
 
-```go
-// github.com/grauwen/utl-x-infer — go.mod
-module github.com/grauwen/utl-x-infer
-
-go 1.22
-
-require (
-    github.com/grauwen/utl-x v1.3.0   // parser, UDM 1.0, core stdlib
-    // TFM and tensor dependencies — only here, never in utl-x
-)
+```kotlin
+// utl-x-infer — build.gradle.kts
+dependencies {
+    implementation("com.github.grauwen:utl-x:1.3.0")               // parser, UDM 1.0, core stdlib, validate.* (1.1)
+    implementation("ai.djl:api:0.26.0")                            // TFM runtime — only here, never in utl-x
+    implementation("ai.djl.onnxruntime:onnxruntime-engine:0.26.0")
+}
 ```
 
-A user importing `github.com/grauwen/utl-x` gets zero TFM dependencies.
-A user importing `github.com/grauwen/utl-x-infer` gets both.
+A project depending on `com.github.grauwen:utl-x` gets zero TFM dependencies.
+A project depending on `com.github.grauwen:utl-x-infer` gets both.
 
 ---
 
