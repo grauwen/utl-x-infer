@@ -210,28 +210,28 @@ $current |> validate.required(["orderId", "currency", "lineItems"])
 Equivalent to `validate.assert` with a null check per field, but terser for
 presence-only validation.
 
-### 5.3 `validate.range`
+### 5.3 `validate.inRange`
 
 Assert a numeric field is within a declared range (inclusive).
 
 ```
-validate.range(field: string, min: number, max: number) → ValidationResult
+validate.inRange(field: string, min: number, max: number) → ValidationResult
 ```
 
 ```
-$current |> validate.range("unitPrice", 0.01, 999999.99)
+$current |> validate.inRange("unitPrice", 0.01, 999999.99)
 ```
 
-### 5.4 `validate.codelist`
+### 5.4 `validate.oneOf`
 
 Assert a field value is a member of a controlled list.
 
 ```
-validate.codelist(field: string, values: any[]) → ValidationResult
+validate.oneOf(field: string, values: any[]) → ValidationResult
 ```
 
 ```
-$current |> validate.codelist("currency", ["EUR", "USD", "GBP", "CHF", "JPY"])
+$current |> validate.oneOf("currency", ["EUR", "USD", "GBP", "CHF", "JPY"])
 ```
 
 ### 5.5 `validate.matches`
@@ -246,17 +246,17 @@ validate.matches(field: string, pattern: string) → ValidationResult
 $current |> validate.matches("iban", "^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$")
 ```
 
-### 5.6 `validate.iso_date`
+### 5.6 `validate.isoDate`
 
 Assert a string field is a valid date in the declared format.
 
 ```
-validate.iso_date(field: string, format: string) → ValidationResult
+validate.isoDate(field: string, format: string) → ValidationResult
 ```
 
 ```
-$current |> validate.iso_date("orderDate", "yyyyMMdd")
-$current |> validate.iso_date("deliveryDate", "yyyy-MM-dd")
+$current |> validate.isoDate("orderDate", "yyyyMMdd")
+$current |> validate.isoDate("deliveryDate", "yyyy-MM-dd")
 ```
 
 ### 5.7 `validate.unique`
@@ -271,28 +271,28 @@ validate.unique(arrayField: string, keyField: string) → ValidationResult
 $current |> validate.unique("orderLines", "lineId")
 ```
 
-### 5.8 `validate.mutually_exclusive`
+### 5.8 `validate.mutuallyExclusive`
 
 Assert at most one of the named fields is non-null.
 
 ```
-validate.mutually_exclusive(fields: string[]) → ValidationResult
+validate.mutuallyExclusive(fields: string[]) → ValidationResult
 ```
 
 ```
-$current |> validate.mutually_exclusive(["shipToId", "shipToAddress"])
+$current |> validate.mutuallyExclusive(["shipToId", "shipToAddress"])
 ```
 
-### 5.9 `validate.at_least_one`
+### 5.9 `validate.atLeastOne`
 
 Assert at least one of the named fields is non-null.
 
 ```
-validate.at_least_one(fields: string[]) → ValidationResult
+validate.atLeastOne(fields: string[]) → ValidationResult
 ```
 
 ```
-$current |> validate.at_least_one(["email", "phone", "fax"])
+$current |> validate.atLeastOne(["email", "phone", "fax"])
 ```
 
 ### 5.10 Chaining validate.* functions
@@ -307,8 +307,8 @@ output json
 ---
 $current
   |> validate.required(["orderId", "currency", "lineItems"])
-  |> validate.range("unitPrice", 0.01, 999999.99)
-  |> validate.codelist("currency", ["EUR", "USD", "GBP"])
+  |> validate.inRange("unitPrice", 0.01, 999999.99)
+  |> validate.oneOf("currency", ["EUR", "USD", "GBP"])
   |> validate.assert([
        { rule: "vatrate-eur",
          when: $.currency = "EUR",
@@ -321,6 +321,20 @@ When chained, all rules from all calls are evaluated. The final
 `ValidationResult` aggregates `passed`, `failed`, `warnings`, and `errors`
 from every step in the chain. Chaining is short-circuit-free — all rules are
 always evaluated regardless of earlier failures.
+
+### 5.11 Naming convention and the guard profile
+
+The `validate.*` namespace follows one convention: **descriptive, camelCase** names
+(`validate.inRange`, not `validate.range`; `validate.isoDate`, not `validate.iso_date`). A call
+site should read as intent, which matters most for the content guard's reviewers and accreditors.
+
+The functions in §5.1–5.9 are the **core tier**, carried by every edition. A separate **guard
+profile** — structural caps and allow-list functions such as `validate.conformsTo`,
+`validate.onlyFields`, `validate.maxDepth`, `validate.maxBytes`, `validate.noControlChars`, and the
+`validate.all(...)` combinator — extends the namespace for content-guard use. These have no
+equivalent in the core tier and are defined in `utlx-mil/docs/guard-rule-library.md`. The full
+two-tier vocabulary and the rename that aligned this spec to the convention are recorded in
+`utlx-validate-naming-and-guard-profile.md`.
 
 ---
 
@@ -556,13 +570,13 @@ All existing 1.0 tests remain and must continue to pass.
 | `validate.assert` — severity | Error severity, warning severity, mixed | 4 |
 | `validate.assert` — cross-field | Multi-field `fields` array, computed check | 4 |
 | `validate.required` | All present, one missing, all missing | 4 |
-| `validate.range` | In range, below min, above max, boundary | 4 |
-| `validate.codelist` | Value in list, value not in list | 3 |
+| `validate.inRange` | In range, below min, above max, boundary | 4 |
+| `validate.oneOf` | Value in list, value not in list | 3 |
 | `validate.matches` | Pattern match, pattern no match, invalid pattern | 4 |
-| `validate.iso_date` | Valid date, invalid date, wrong format | 4 |
+| `validate.isoDate` | Valid date, invalid date, wrong format | 4 |
 | `validate.unique` | No duplicates, one duplicate, all duplicate | 4 |
-| `validate.mutually_exclusive` | Zero set, one set, two set | 3 |
-| `validate.at_least_one` | None set, one set, all set | 3 |
+| `validate.mutuallyExclusive` | Zero set, one set, two set | 3 |
+| `validate.atLeastOne` | None set, one set, all set | 3 |
 | Chaining | Two functions chained, three chained, errors merged | 4 |
 | ValidationResult — implicit passthrough | Field access on result resolves via payload | 3 |
 | ValidationResult — explicit access | `.valid`, `.errors`, `.failed`, `.warnings` | 4 |
@@ -588,8 +602,8 @@ All existing 1.0 tests remain and must continue to pass.
   accessing the original values for logging and correction workflows.
 
 - **Should `validate.*` functions accept a schema ref for codelist lookups?**
-  `validate.codelist("currency", ["EUR","USD","GBP"])` hardcodes the list.
-  A schema-ref-based variant — `validate.codelist("currency",
+  `validate.oneOf("currency", ["EUR","USD","GBP"])` hardcodes the list.
+  A schema-ref-based variant — `validate.oneOf("currency",
   schema: "open-m.codelists.iso-4217:1.0.0")` — would resolve the list from
   the Schema Registry at runtime. This would break the stateless guarantee
   (external call to the registry). Not proposed for 1.1. If needed, the
